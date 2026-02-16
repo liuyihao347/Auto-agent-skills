@@ -11,6 +11,10 @@ import {
   deleteSkill,
   getSkillsDir,
 } from "./skills-manager.js";
+import {
+  getSkillCreatorGuide,
+  getSkillUpdaterGuide,
+} from "./builtin-skills.js";
 
 const server = new McpServer({
   name: "autoskills",
@@ -68,6 +72,7 @@ server.tool(
         })
         .join("\n");
 
+      const updaterGuide = getSkillUpdaterGuide();
       return {
         content: [
           {
@@ -79,6 +84,11 @@ server.tool(
               issues: skill_issues || "",
               task_description,
               solution_summary,
+              guide: updaterGuide ? {
+                name: updaterGuide.name,
+                description: updaterGuide.description,
+                instructions: updaterGuide.content,
+              } : null,
             }),
           },
         ],
@@ -87,6 +97,7 @@ server.tool(
 
     const existingNames = existingSkills.map((s) => s.name).join(", ") || "(none)";
 
+    const creatorGuide = getSkillCreatorGuide();
     return {
       content: [
         {
@@ -97,6 +108,11 @@ server.tool(
             task_description,
             solution_summary,
             existing_skills: existingSkills.map((s) => s.name),
+            guide: creatorGuide ? {
+              name: creatorGuide.name,
+              description: creatorGuide.description,
+              instructions: creatorGuide.content,
+            } : null,
           }),
         },
       ],
