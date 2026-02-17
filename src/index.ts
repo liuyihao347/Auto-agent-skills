@@ -14,6 +14,7 @@ import {
 import {
   getSkillCreatorGuide,
   getSkillUpdaterGuide,
+  getAutoskillHandlerGuide,
 } from "./builtin-skills.js";
 
 const server = new McpServer({
@@ -120,7 +121,134 @@ server.tool(
   }
 );
 
-// ── Tool: create_skill ─────────────────────────────────────────────────────────
+// ── Tool: autoskill_quick ─────────────────────────────────────────────────────
+// Quick command: /autoskill - skip agent's context judgment and directly create/improve skills
+server.tool(
+  "autoskill_quick",
+  "Quick command to skip agent's context judgment. When user types \/autoskill in chat, call this tool. If skill_hint is provided, create skill from that text. If skills_used provided, improve those skills. Otherwise auto-create skill from task_context.",
+  {
+    skill_hint: z
+      .string()
+      .optional()
+      .describe("User's additional text after \/autoskill command. If provided, create skill directly from this text"),
+    skills_used: z
+      .array(z.string())
+      .optional()
+      .describe("Names of personal skills used in current task. If provided and no skill_hint, improve these skills"),
+    task_context: z
+      .string()
+      .optional()
+      .describe("Current task context/summary. Used when no skill_hint and no skills_used to auto-create skill"),
+    skill_execution_smooth: z
+      .boolean()
+      .optional()
+      .describe("Whether skills_used executed smoothly. Only relevant when skills_used is provided"),
+    skill_issues: z
+      .string()
+      .optional()
+      .describe("Issues encountered with skills_used"),
+  },
+  async ({ skill_hint, skills_used, task_context, skill_execution_smooth, skill_issues }) => {
+    const usedSkills = skills_used ?? [];
+    const hasUsedSkills = usedSkills.length > 0;
+
+    // Case 1: User provided skill_hint - create skill directly from hint
+    if (skill_hint && skill_hint.trim()) {
+      const creatorGuide = getSkillCreatorGuide();
+      const handlerGuide = getAutoskillHandlerGuide();
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              action: "direct_create",
+              message: `Creating new skill from your hint: "${skill_hint}"`,
+              skill_hint: skill_hint.trim(),
+              guide: creatorGuide ? {
+                name: creatorGuide.name,
+                description: creatorGuide.description,
+                instructions: creatorGuide.content,
+              } : null,
+              handler_guide: handlerGuide ? {
+                name: handlerGuide.name,
+                description: handlerGuide.description,
+                instructions: handlerGuide.content,
+              } : null,
+            }),
+          },
+        ],
+      };
+    }
+
+    // Case 2: User used skills - improve them
+    if (hasUsedSkills) {
+      const skillDetails = usedSkills
+        .map((name) => {
+          const skill = getSkill(name);
+          return skill
+            ? `- **${skill.meta.name}**: ${skill.meta.description}`
+            : `- **${name}**: (not found in personal skills)`;
+        })
+        .join("\n");
+
+      const updaterGuide = getSkillUpdaterGuide();
+      const handlerGuide = getAutoskillHandlerGuide();
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              action: hasUsedSkills && skill_execution_smooth === false ? "direct_improve" : "suggest_improve",
+              message: hasUsedSkills && skill_execution_smooth === false
+                ? `Auto-improving skill(s) based on execution issues:`
+                : `The following skill(s) were used. Would you like to improve them?`,
+              skills_to_improve: usedSkills,
+              skills_details: skillDetails,
+              issues: skill_issues || "",
+              task_context: task_context || "",
+              guide: updaterGuide ? {
+                name: updaterGuide.name,
+                description: updaterGuide.description,
+                instructions: updaterGuide.content,
+              } : null,
+              handler_guide: handlerGuide ? {
+                name: handlerGuide.name,
+                description: handlerGuide.description,
+                instructions: handlerGuide.content,
+              } : null,
+            }),
+          },
+        ],
+      };
+    }
+
+    // Case 3: No skills used, no hint - auto-create from task context
+    const creatorGuide = getSkillCreatorGuide();
+    const handlerGuide = getAutoskillHandlerGuide();
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify({
+            action: "auto_create",
+            message: `Auto-creating skill from current task context.`,
+            task_context: task_context || "",
+            guide: creatorGuide ? {
+              name: creatorGuide.name,
+              description: creatorGuide.description,
+              instructions: creatorGuide.content,
+            } : null,
+            handler_guide: handlerGuide ? {
+              name: handlerGuide.name,
+              description: handlerGuide.description,
+              instructions: handlerGuide.content,
+            } : null,
+          }),
+        },
+      ],
+    };
+  }
+);
 server.tool(
   "create_skill",
   "Create a new personal skill from a completed task solution",

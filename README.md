@@ -41,6 +41,7 @@ When a task is completed, the agent calls Autoskills to evaluate whether the sol
 | 🤖 | **Multi-agent support** | Works with Windsurf, Cursor, Claude Code, Kilo Code, and any MCP-compatible agent |
 | 📦 | **Portable** | Skills are plain Markdown — sync, share, or open-source them |
 | 🛠️ | **Built-in guides** | Includes skill-creator and skill-updater guides to help agents craft high-quality skills |
+| ⚡ | **Quick command** | `/autoskill` — Skip agent judgment and directly create or improve skills |
 
 ## 🚀 Quick Start
 
@@ -150,20 +151,42 @@ After completing a task, the agent calls Autoskills MCP tools:
 | Tool | Description |
 |:-----|:------------|
 | `review_task` | Review a completed task — suggest creating or improving a skill |
+| `autoskill_quick` | **Quick command** — Skip agent judgment, directly create or improve skills |
 | `create_skill` | Create a new personal skill from a solution |
 | `update_skill` | Improve an existing personal skill |
 | `list_skills` | List all personal skills |
 | `get_skill` | Read a specific skill's full content |
 | `delete_skill` | Remove a personal skill |
 
+## ⚡ Quick Command: `/autoskill`
+
+The `/autoskill` command lets you **skip the agent's context judgment** and directly trigger skill creation or improvement.
+
+### Usage Patterns
+
+| Pattern | Description | Example |
+|---------|-------------|---------|
+| `/autoskill [description]` | Create a skill directly from your description | `/autoskill Create a Python web scraper with retry logic` |
+| `/autoskill` (skills used) | Improve skills that were used in the current task | After using `web-scraper` skill, type `/autoskill` to improve it |
+| `/autoskill` (no skills) | Auto-create a skill from the current task context | After completing a task, type `/autoskill` to package it as a skill |
+
+### How It Works
+
+1. **`/autoskill [description]`** — The agent immediately creates a new skill based on your description, without asking for confirmation.
+
+2. **`/autoskill` with skills used** — If skills were used in the conversation, the agent will improve them. If execution had issues, improvement happens automatically. If execution was smooth, the agent asks if you want to improve anyway.
+
+3. **`/autoskill` without skills** — The agent automatically packages the current task context as a new reusable skill.
+
 ## 🛠️ CLI Commands
 
 ### Built-in Skill Guides
 
-When `review_task` suggests creating or improving a skill, it automatically includes guidance:
+When `review_task` or `autoskill_quick` suggests creating or improving a skill, it automatically includes guidance:
 
 - **skill-creator**: Guide for creating effective, reusable skills
 - **skill-updater**: Guide for improving skills based on execution feedback
+- **autoskill-handler**: Guide for agents to handle the `/autoskill` quick command
 
 ## Personal Skills Library
 

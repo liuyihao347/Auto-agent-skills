@@ -52,6 +52,10 @@ export function getSkillUpdaterGuide(): BuiltinSkill | null {
   return loadBuiltinSkill("skill-updater");
 }
 
+export function getAutoskillHandlerGuide(): BuiltinSkill | null {
+  return loadBuiltinSkill("autoskill-handler");
+}
+
 export function listBuiltinSkills(): BuiltinSkill[] {
   const skills: BuiltinSkill[] = [];
   
@@ -60,6 +64,9 @@ export function listBuiltinSkills(): BuiltinSkill[] {
   
   const updater = getSkillUpdaterGuide();
   if (updater) skills.push(updater);
+
+  const autoskillHandler = getAutoskillHandlerGuide();
+  if (autoskillHandler) skills.push(autoskillHandler);
   
   return skills;
 }

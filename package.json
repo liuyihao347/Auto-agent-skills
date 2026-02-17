@@ -10,7 +10,7 @@
   },
   "scripts": {
     "build": "tsc && npm run copy-skills",
-    "copy-skills": "node -e \"const fs=require('fs');const p=require('path');const src='src/builtin-skills';const dst='dist/builtin-skills';if(!fs.existsSync(dst))fs.mkdirSync(dst,{recursive:true});fs.readdirSync(src).filter(f=>f.endsWith('.md')).forEach(f=>fs.copyFileSync(p.join(src,f),p.join(dst,f)))\"",
+    "copy-skills": "node -e \"const fs=require('fs');const p=require('path');function copyDir(src,dst){if(!fs.existsSync(dst))fs.mkdirSync(dst,{recursive:true});fs.readdirSync(src,{withFileTypes:true}).forEach(e=>{const s=p.join(src,e.name);const d=p.join(dst,e.name);if(e.isDirectory()){copyDir(s,d);}else if(e.name.endsWith('.md')){fs.copyFileSync(s,d);}});}copyDir('src/builtin-skills','dist/builtin-skills');\"",
     "dev": "tsc --watch",
     "start": "node dist/index.js"
   },
