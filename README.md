@@ -16,34 +16,17 @@
 
 ---
 
-## How It Works
-
-```
-Agent completes a task
-        │
-        ▼
-  Autoskills MCP reviews the solution
-        │
-        ├── No skill used ──► Reusable? ──► Yes ──► Suggest creating a new skill
-        │                                   No  ──► Do nothing
-        │
-        └── Skill(s) used ──► Worked well? ──► Yes ──► Do nothing
-                                               No  ──► Suggest improving the skill
-```
-
-When a task is completed, the agent calls Autoskills to evaluate whether the solution is worth packaging into a reusable skill. Skills are stored as Markdown files in a **personal skills folder** — easy to version, share, and reuse across projects.
-
 ## ✨ Features
 
-| | Feature | Description |
-|---|---|---|
-| 🔍 | **Auto-review** | Evaluates completed tasks for skill-worthy patterns |
-| 💡 | **Smart suggestion** | Only prompts when a new skill or improvement is genuinely useful |
-| 📚 | **Personal skills library** | Maintains a dedicated folder of user-created, updatable skills |
-| 🤖 | **Multi-agent support** | Works with Windsurf, Cursor, Claude Code, Kilo Code, and any MCP-compatible agent |
-| 📦 | **Portable** | Skills are plain Markdown — sync, share, or open-source them |
-| 🛠️ | **Built-in guides** | Includes skill-creator and skill-updater guides to help agents craft high-quality skills |
-| ⚡ | **Quick command** | `/autoskill` — Skip agent judgment and directly create or improve skills |
+| Feature | Description |
+|:---|:---|
+| **Auto-review** | Evaluates completed tasks for skill-worthy patterns |
+| **Smart suggestion** | Only prompts when a new skill or improvement is genuinely useful |
+| **Personal skills library** | Maintains a dedicated folder of user-created, updatable skills |
+| **Multi-agent support** | Works with Windsurf, Cursor, Claude Code, and any MCP-compatible agent |
+| **Quick command** | `/autoskill` — Skip agent judgment and directly create or improve skills |
+
+---
 
 ## 🚀 Quick Start
 
@@ -54,19 +37,6 @@ git clone https://github.com/YOUR_USERNAME/Autoskills.git
 cd Autoskills
 npm install
 npm run build
-```
-
-### CLI Commands
-
-```bash
-# Create a new skill template in personal-skills library
-npx autoskill init <skill-name>
-
-# Add a skill (copies to personal-skills, creates symlink to .agents/skills)
-npx autoskill add <path> -y
-
-# List all personal skills
-npx autoskill list
 ```
 
 ### 2. Configure your agent
@@ -145,80 +115,31 @@ Add via Kilo Code's MCP settings UI, or edit its config:
 
 ### 3. Start Using It
 
-After completing a task, the agent calls Autoskills MCP tools:
+After completing a task, your agent will automatically call Autoskills to review the solution.
 
-| Tool | Description |
-|:-----|:------------|
-| `review_task` | Review a completed task — suggest creating or improving a skill |
-| `autoskill_quick` | **Quick command** — Skip agent judgment, directly create or improve skills |
-| `create_skill` | Create a new personal skill from a solution |
-| `update_skill` | Improve an existing personal skill |
-| `list_skills` | List all personal skills |
-| `get_skill` | Read a specific skill's full content |
-| `delete_skill` | Remove a personal skill |
+Use the `/autoskill` command to skip review and directly create or improve skills:
 
-## ⚡ Quick Command: `/autoskill`
+| Command | Description | Example |
+|:---|:---|:---|
+| `/autoskill [description]` | Create skill from description | `/autoskill Create a Python web scraper` |
+| `/autoskill` | Improve used skills, or create from context | Just type `/autoskill` |
 
-The `/autoskill` command lets you **skip the agent's context judgment** and directly trigger skill creation or improvement.
-
-### Usage Patterns
-
-| Pattern | Description | Example |
-|---------|-------------|---------|
-| `/autoskill [description]` | Create a skill directly from your description | `/autoskill Create a Python web scraper with retry logic` |
-| `/autoskill` (skills used) | Improve skills that were used in the current task | After using `web-scraper` skill, type `/autoskill` to improve it |
-| `/autoskill` (no skills) | Auto-create a skill from the current task context | After completing a task, type `/autoskill` to package it as a skill |
-
-### How It Works
-
-1. **`/autoskill [description]`** — The agent immediately creates a new skill based on your description, without asking for confirmation.
-
-2. **`/autoskill` with skills used** — If skills were used in the conversation, the agent will improve them. If execution had issues, improvement happens automatically. If execution was smooth, the agent asks if you want to improve anyway.
-
-3. **`/autoskill` without skills** — The agent automatically packages the current task context as a new reusable skill.
-
-## 🛠️ CLI Commands
-
-### Built-in Skill Guides
-
-When `review_task` or `autoskill_quick` suggests creating or improving a skill, it automatically includes guidance:
-
-- **skill-creator**: Guide for creating effective, reusable skills
-- **skill-updater**: Guide for improving skills based on execution feedback
-- **autoskill-handler**: Guide for agents to handle the `/autoskill` quick command
-
-## Personal Skills Library
-
-```bash
-npx autoskill init <skill-name>    # Create a new skill template in personal-skills
-npx autoskill add <path> -y        # Add skill (copies to personal-skills, creates symlink)
-npx autoskill list                 # List all personal skills
-```
+---
 
 ## 📚 Personal Skills Library
 
-Skills follow a simple, portable structure:
+Skills are stored as Markdown files in `~/.autoskills/personal-skills/`:
 
-```
+```bash
 ~/.autoskills/personal-skills/
-├── web-scraping-with-playwright/
+├── web-scraping/
 │   └── SKILL.md
-├── docker-compose-setup/
+├── docker-setup/
 │   └── SKILL.md
-└── react-ts-setup/
+└── react-component/
     ├── SKILL.md
     ├── scripts/
-    ├── references/
-    └── assets/
-```
-
-**Agent skills directory** (symlinks):
-
-```
-~/.agents/skills/  (or AGENTS_SKILLS_DIR)
-├── web-scraping-with-playwright -> ~/.autoskills/personal-skills/web-scraping-with-playwright
-├── docker-compose-setup -> ~/.autoskills/personal-skills/docker-compose-setup
-└── react-ts-setup -> ~/.autoskills/personal-skills/react-ts-setup
+    └── references/
 ```
 
 Each `SKILL.md` contains:
@@ -238,20 +159,19 @@ Trigger conditions and applicable scenarios.
 Step-by-step workflow for the agent to follow.
 ```
 
-### Built-in Skill Guides
+---
 
-When `review_task` suggests creating or improving a skill, Autoskills automatically provides guidance via built-in skills:
+## 🛠️ CLI (Optional)
 
-| Guide | Purpose |
-|:------|:--------|
-| **skill-creator** | Walks the agent through creating a well-structured, effective skill |
-| **skill-updater** | Guides the agent in diagnosing issues and applying targeted improvements |
+A small CLI for managing skills without an agent:
 
-## 🧭 Philosophy
+```bash
+npx autoskill init <skill-name>    # Create a skill template
+npx autoskill add <path> -y        # Add skill and create symlink
+npx autoskill list                 # List all skills
+```
 
-- **Frozen vs Personal** — Built-in skills stay frozen; only personal skills are created and updated
-- **User in control** — The agent always asks before creating or modifying a skill
-- **Minimal noise** — If a skill worked well, no prompt is triggered; suggestions only appear when they add value
+---
 
 ## 📄 License
 
