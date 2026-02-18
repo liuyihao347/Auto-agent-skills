@@ -34,73 +34,30 @@ This skill can include optional resource directories:
 Delete this section and any unneeded directories when done.
 `;
 
-interface AgentConfig {
-  name: string;
-  configPath: string;
-  skillsKey: string;
-  format: "json" | "jsonc";
+function getSkillsDir(): string {
+  return process.env.AUTOSKILLS_DIR || path.join(os.homedir(), ".autoskills", "personal-skills");
 }
 
-function getAgentConfigs(): AgentConfig[] {
-  const home = os.homedir();
-  const configs: AgentConfig[] = [];
-
-  // Windsurf
-  const windsurfPath = path.join(home, ".codeium", "windsurf", "mcp_settings.json");
-  if (fs.existsSync(windsurfPath)) {
-    configs.push({ name: "Windsurf", configPath: windsurfPath, skillsKey: "skills", format: "json" });
-  }
-
-  // Cursor
-  const cursorPath = path.join(home, ".cursor", "mcp.json");
-  if (fs.existsSync(cursorPath)) {
-    configs.push({ name: "Cursor", configPath: cursorPath, skillsKey: "skills", format: "json" });
-  }
-
-  // Claude Desktop (Windows)
-  const claudeWinPath = path.join(home, "AppData", "Roaming", "Claude", "claude_desktop_config.json");
-  if (fs.existsSync(claudeWinPath)) {
-    configs.push({ name: "Claude Desktop", configPath: claudeWinPath, skillsKey: "skills", format: "json" });
-  }
-
-  // Claude Desktop (macOS)
-  const claudeMacPath = path.join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json");
-  if (fs.existsSync(claudeMacPath)) {
-    configs.push({ name: "Claude Desktop", configPath: claudeMacPath, skillsKey: "skills", format: "json" });
-  }
-
-  // VS Code / Kilo Code
-  const vscodePaths = [
-    path.join(home, ".vscode", "mcp.json"),
-    path.join(home, "AppData", "Roaming", "Code", "User", "globalStorage", "anthropic.claude-code", "settings.json"),
-  ];
-  for (const p of vscodePaths) {
-    if (fs.existsSync(p)) {
-      configs.push({ name: "VS Code/Kilo", configPath: p, skillsKey: "skills", format: "json" });
-    }
-  }
-
-  return configs;
+function getAgentsSkillsDir(): string {
+  return process.env.AGENTS_SKILLS_DIR || path.join(os.homedir(), ".agents", "skills");
 }
 
 function titleCase(name: string): string {
   return name.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
 
-function initSkill(skillName: string, targetPath?: string): void {
-  const outputDir = targetPath || process.cwd();
-  const skillDir = path.join(outputDir, skillName);
+function initSkill(skillName: string): void {
+  const skillsDir = getSkillsDir();
+  const skillDir = path.join(skillsDir, skillName);
 
   if (fs.existsSync(skillDir)) {
     console.error(`❌ Error: Skill directory already exists: ${skillDir}`);
     process.exit(1);
   }
 
-  // Create skill directory
   fs.mkdirSync(skillDir, { recursive: true });
   console.log(`✅ Created skill directory: ${skillDir}`);
 
-  // Create SKILL.md
   const content = SKILL_TEMPLATE
     .replace(/{skill_name}/g, skillName)
     .replace(/{skill_title}/g, titleCase(skillName));
@@ -108,7 +65,6 @@ function initSkill(skillName: string, targetPath?: string): void {
   fs.writeFileSync(path.join(skillDir, "SKILL.md"), content, "utf-8");
   console.log("✅ Created SKILL.md");
 
-  // Create optional resource directories
   fs.mkdirSync(path.join(skillDir, "scripts"), { recursive: true });
   fs.mkdirSync(path.join(skillDir, "references"), { recursive: true });
   fs.mkdirSync(path.join(skillDir, "assets"), { recursive: true });
@@ -118,70 +74,7 @@ function initSkill(skillName: string, targetPath?: string): void {
   console.log("\nNext steps:");
   console.log("1. Edit SKILL.md to complete the TODO items");
   console.log("2. Delete unused resource directories");
-  console.log(`3. Run: npx skills add ${skillDir} -y`);
-}
-
-function addSkill(skillPath: string, autoConfirm: boolean): void {
-  const resolvedPath = path.resolve(skillPath);
-  const skillMdPath = path.join(resolvedPath, "SKILL.md");
-
-  if (!fs.existsSync(skillMdPath)) {
-    console.error(`❌ Error: SKILL.md not found at ${skillMdPath}`);
-    process.exit(1);
-  }
-
-  // Parse skill name from SKILL.md
-  const content = fs.readFileSync(skillMdPath, "utf-8");
-  const nameMatch = content.match(/^name:\s*(.+)$/m);
-  const skillName = nameMatch ? nameMatch[1].trim() : path.basename(resolvedPath);
-
-  // Get default skills directory
-  const defaultSkillsDir = process.env.AUTOSKILLS_DIR || path.join(os.homedir(), ".autoskills", "personal-skills");
-  
-  // Ensure skills directory exists
-  if (!fs.existsSync(defaultSkillsDir)) {
-    fs.mkdirSync(defaultSkillsDir, { recursive: true });
-  }
-
-  const targetDir = path.join(defaultSkillsDir, skillName);
-
-  // Copy skill to personal-skills directory
-  if (resolvedPath !== targetDir) {
-    if (fs.existsSync(targetDir)) {
-      if (!autoConfirm) {
-        console.log(`⚠️  Skill "${skillName}" already exists at ${targetDir}`);
-        console.log("Use -y flag to overwrite.");
-        process.exit(1);
-      }
-      fs.rmSync(targetDir, { recursive: true, force: true });
-    }
-    copyDir(resolvedPath, targetDir);
-    console.log(`✅ Copied skill to ${targetDir}`);
-  }
-
-  // Configure agent applications
-  const agents = getAgentConfigs();
-  
-  if (agents.length === 0) {
-    console.log("\n⚠️  No agent configuration files found.");
-    console.log("Skill has been added to personal-skills directory.");
-    console.log(`Location: ${targetDir}`);
-    return;
-  }
-
-  console.log(`\n📦 Configuring skill for ${agents.length} agent(s)...`);
-
-  for (const agent of agents) {
-    try {
-      configureAgent(agent, skillName, targetDir);
-      console.log(`✅ Configured ${agent.name}`);
-    } catch (err) {
-      console.log(`⚠️  Failed to configure ${agent.name}: ${(err as Error).message}`);
-    }
-  }
-
-  console.log(`\n✅ Skill "${skillName}" added successfully!`);
-  console.log(`Location: ${targetDir}`);
+  console.log(`3. Run: npx autoskill add ${skillDir} -y`);
 }
 
 function copyDir(src: string, dest: string): void {
@@ -200,45 +93,76 @@ function copyDir(src: string, dest: string): void {
   }
 }
 
-function configureAgent(agent: AgentConfig, skillName: string, skillPath: string): void {
-  let config: Record<string, unknown> = {};
-  
-  if (fs.existsSync(agent.configPath)) {
-    const content = fs.readFileSync(agent.configPath, "utf-8");
-    try {
-      // Remove comments for JSONC
-      const jsonContent = content.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
-      config = JSON.parse(jsonContent);
-    } catch {
-      config = {};
+function createSymlink(target: string, linkPath: string): void {
+  const linkDir = path.dirname(linkPath);
+  if (!fs.existsSync(linkDir)) {
+    fs.mkdirSync(linkDir, { recursive: true });
+  }
+
+  if (fs.existsSync(linkPath)) {
+    fs.rmSync(linkPath, { recursive: true });
+  }
+
+  try {
+    fs.symlinkSync(target, linkPath, "junction");
+    return;
+  } catch {
+  }
+
+  try {
+    fs.symlinkSync(target, linkPath, "dir");
+  } catch (err) {
+    console.log(`⚠️  Failed to create symlink: ${(err as Error).message}`);
+  }
+}
+
+function addSkill(skillPath: string, autoConfirm: boolean): void {
+  const resolvedPath = path.resolve(skillPath);
+  const skillMdPath = path.join(resolvedPath, "SKILL.md");
+
+  if (!fs.existsSync(skillMdPath)) {
+    console.error(`❌ Error: SKILL.md not found at ${skillMdPath}`);
+    process.exit(1);
+  }
+
+  const content = fs.readFileSync(skillMdPath, "utf-8");
+  const nameMatch = content.match(/^name:\s*(.+)$/m);
+  const skillName = nameMatch ? nameMatch[1].trim() : path.basename(resolvedPath);
+
+  const skillsDir = getSkillsDir();
+  if (!fs.existsSync(skillsDir)) {
+    fs.mkdirSync(skillsDir, { recursive: true });
+  }
+
+  const targetDir = path.join(skillsDir, skillName);
+  const isNewSkill = !fs.existsSync(targetDir);
+
+  if (resolvedPath !== targetDir) {
+    if (fs.existsSync(targetDir)) {
+      if (!autoConfirm) {
+        console.log(`⚠️  Skill "${skillName}" already exists at ${targetDir}`);
+        console.log("Use -y flag to overwrite.");
+        process.exit(1);
+      }
+      fs.rmSync(targetDir, { recursive: true, force: true });
     }
+    copyDir(resolvedPath, targetDir);
+    console.log(`✅ Copied skill to ${targetDir}`);
   }
 
-  // Ensure skills array exists
-  if (!Array.isArray(config[agent.skillsKey])) {
-    config[agent.skillsKey] = [];
+  if (isNewSkill) {
+    const agentsSkillsDir = getAgentsSkillsDir();
+    const linkPath = path.join(agentsSkillsDir, skillName);
+    createSymlink(targetDir, linkPath);
+    console.log(`✅ Created symlink: ${linkPath}`);
   }
 
-  const skills = config[agent.skillsKey] as Array<{ name: string; path: string }>;
-  
-  // Check if skill already exists
-  const existingIndex = skills.findIndex(s => s.name === skillName);
-  if (existingIndex >= 0) {
-    skills[existingIndex] = { name: skillName, path: skillPath };
-  } else {
-    skills.push({ name: skillName, path: skillPath });
-  }
-
-  // Write config back
-  const dir = path.dirname(agent.configPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  fs.writeFileSync(agent.configPath, JSON.stringify(config, null, 2), "utf-8");
+  console.log(`\n✅ Skill "${skillName}" added successfully!`);
+  console.log(`Location: ${targetDir}`);
 }
 
 function listSkills(): void {
-  const skillsDir = process.env.AUTOSKILLS_DIR || path.join(os.homedir(), ".autoskills", "personal-skills");
+  const skillsDir = getSkillsDir();
   
   if (!fs.existsSync(skillsDir)) {
     console.log("No personal skills found.");
@@ -281,19 +205,23 @@ function showHelp(): void {
 Autoskills CLI - Manage personal AI agent skills
 
 Usage:
-  npx skills <command> [options]
+  npx autoskills-cli <command> [options]
 
 Commands:
   init <name> [--path <dir>]   Create a new skill template
-  add <path> [-y]              Add a skill to all agent applications
+  add <path> [-y]              Add a skill (copies to personal-skills, creates symlink)
   list                         List all personal skills
   help                         Show this help message
 
+Environment Variables:
+  AUTOSKILLS_DIR               Personal skills storage (default: ~/.autoskills/personal-skills)
+  AGENTS_SKILLS_DIR            Agent skills symlink directory (default: ~/.agents/skills)
+
 Examples:
-  npx skills init my-skill
-  npx skills init my-skill --path ./skills
-  npx skills add ./my-skill -y
-  npx skills list
+  npx autoskills-cli init my-skill
+  npx autoskills-cli init my-skill --path ./skills
+  npx autoskills-cli add ./my-skill -y
+  npx autoskills-cli list
 
 Options:
   -y, --yes    Auto-confirm overwrites
@@ -311,19 +239,17 @@ function main(): void {
       const skillName = args[1];
       if (!skillName) {
         console.error("❌ Error: Skill name is required");
-        console.log("Usage: npx skills init <skill-name> [--path <dir>]");
+        console.log("Usage: npx autoskill init <skill-name>");
         process.exit(1);
       }
-      const pathIndex = args.indexOf("--path");
-      const targetPath = pathIndex >= 0 ? args[pathIndex + 1] : undefined;
-      initSkill(skillName, targetPath);
+      initSkill(skillName);
       break;
     }
     case "add": {
       const skillPath = args[1];
       if (!skillPath) {
         console.error("❌ Error: Skill path is required");
-        console.log("Usage: npx skills add <path> [-y]");
+        console.log("Usage: npx autoskill add <path> [-y]");
         process.exit(1);
       }
       const autoConfirm = args.includes("-y") || args.includes("--yes");

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { spawn } from "node:child_process";
 
 const DEFAULT_SKILLS_DIR = path.join(os.homedir(), ".autoskills", "personal-skills");
 
@@ -115,14 +116,46 @@ export function getSkill(name: string): Skill | null {
   };
 }
 
-export function createSkill(
+function runNpxSkillsAdd(skillDir: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("npx", ["skills", "add", skillDir, "-y"], {
+      stdio: "pipe",
+      shell: true,
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    proc.stdout?.on("data", (data) => {
+      stdout += data.toString();
+    });
+
+    proc.stderr?.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    proc.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`npx skills add failed (code ${code}): ${stderr || stdout}`));
+      }
+    });
+
+    proc.on("error", (err) => {
+      reject(new Error(`Failed to run npx skills add: ${err.message}`));
+    });
+  });
+}
+
+export async function createSkill(
   name: string,
   description: string,
   title: string,
   whenToUse: string,
   instructions: string,
   tags: string[] = []
-): string {
+): Promise<string> {
   const dir = getSkillsDir();
   const skillDir = path.join(dir, name);
 
@@ -130,7 +163,9 @@ export function createSkill(
     throw new Error(`Skill "${name}" already exists. Use update_skill to modify it.`);
   }
 
-  ensureDir(skillDir);
+  // Create temporary directory for the skill
+  const tmpDir = path.join(os.tmpdir(), `autoskill-${name}-${Date.now()}`);
+  ensureDir(tmpDir);
 
   const now = new Date().toISOString().slice(0, 10);
   const meta: SkillMeta = {
@@ -155,9 +190,22 @@ export function createSkill(
     "",
   ].join("\n");
 
-  const skillFile = path.join(skillDir, "SKILL.md");
+  const skillFile = path.join(tmpDir, "SKILL.md");
   fs.writeFileSync(skillFile, content, "utf-8");
-  return skillFile;
+
+  // Install using npx skills add
+  try {
+    await runNpxSkillsAdd(tmpDir);
+  } finally {
+    // Clean up temp directory
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+
+  return path.join(skillDir, "SKILL.md");
 }
 
 export function updateSkill(

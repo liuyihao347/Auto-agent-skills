@@ -265,7 +265,7 @@ server.tool(
   },
   async ({ name, description, title, when_to_use, instructions, tags }) => {
     try {
-      const filePath = createSkill(name, description, title, when_to_use, instructions, tags ?? []);
+      const filePath = await createSkill(name, description, title, when_to_use, instructions, tags ?? []);
       return {
         content: [
           {

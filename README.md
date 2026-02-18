@@ -4,6 +4,8 @@
 
 **Automatically build a reusable personal skills library for your AI agents.**
 
+[中文版](./README_zh.md) | English
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-8A2BE2)](https://modelcontextprotocol.io/)
@@ -56,18 +58,15 @@ npm run build
 
 ### CLI Commands
 
-Autoskills provides CLI commands for managing skills:
-
 ```bash
-# Create a new skill template
-npx skills init <skill-name>
-npx skills init my-skill --path ./skills
+# Create a new skill template in personal-skills library
+npx autoskill init <skill-name>
 
-# Add a skill to all agent applications
-npx skills add <path> -y
+# Add a skill (copies to personal-skills, creates symlink to .agents/skills)
+npx autoskill add <path> -y
 
 # List all personal skills
-npx skills list
+npx autoskill list
 ```
 
 ### 2. Configure your agent
@@ -191,10 +190,9 @@ When `review_task` or `autoskill_quick` suggests creating or improving a skill, 
 ## Personal Skills Library
 
 ```bash
-npx skills init <skill-name>              # Create a new skill template
-npx skills init my-skill --path ./skills  # Create in a specific directory
-npx skills add <path> -y                  # Install skill to all agents
-npx skills list                           # List all personal skills
+npx autoskill init <skill-name>    # Create a new skill template in personal-skills
+npx autoskill add <path> -y        # Add skill (copies to personal-skills, creates symlink)
+npx autoskill list                 # List all personal skills
 ```
 
 ## 📚 Personal Skills Library
@@ -212,6 +210,15 @@ Skills follow a simple, portable structure:
     ├── scripts/
     ├── references/
     └── assets/
+```
+
+**Agent skills directory** (symlinks):
+
+```
+~/.agents/skills/  (or AGENTS_SKILLS_DIR)
+├── web-scraping-with-playwright -> ~/.autoskills/personal-skills/web-scraping-with-playwright
+├── docker-compose-setup -> ~/.autoskills/personal-skills/docker-compose-setup
+└── react-ts-setup -> ~/.autoskills/personal-skills/react-ts-setup
 ```
 
 Each `SKILL.md` contains:
