@@ -16,13 +16,13 @@
 
 ```mermaid
 flowchart TD
-    A[Task completed] --> B{Used skill(s)?}
-    B -->|No| C{Reusable solution?}
-    C -->|Yes| D[Suggest creating a new skill]
-    C -->|No| E[Do nothing]
-    B -->|Yes| F{Worked well?}
+    A["Task completed"] --> B{"Used skill(s)?"}
+    B -->|No| C{"Reusable solution?"}
+    C -->|Yes| D["Suggest creating a new skill"]
+    C -->|No| E["Do nothing"]
+    B -->|Yes| F{"Worked well?"}
     F -->|Yes| E
-    F -->|No| G[Suggest improving the skill]
+    F -->|No| G["Suggest improving the skill"]
 ```
 
 ---
