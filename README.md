@@ -14,22 +14,7 @@
 
 </div>
 
-```
-Task completed
-      │
-      ▼
-Used skill(s)? ──No──► Reusable solution? ──Yes──► Suggest creating a new skill
-      │                              │
-     Yes                             No
-      │                              │
-      ▼                              ▼
-Worked well? ──Yes──► Do nothing    Do nothing
-      │
-     No
-      │
-      ▼
-Suggest improving the skill
-```
+![Flowchart](./flowchart.png)
 
 ---
 
