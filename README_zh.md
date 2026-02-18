@@ -43,58 +43,21 @@ npm run build
 
 将 Autoskills MCP 服务器添加到你的 Agent 配置中：
 
-<details>
-<summary><b>Windsurf</b></summary>
-
-编辑 `~/.codeium/windsurf/mcp_config.json`：
-
 ```json
 {
   "mcpServers": {
-    "autoskills": {
+    "auto-agent-skills": {
       "command": "node",
-      "args": ["<path-to-autoskills>/dist/index.js"]
+      "args": ["<path-to-autoskills>/dist/index.js"],
+      "env": {
+        "AUTOSKILLS_DIR": "<path-to-your-home>/.autoskills/personal-skills"
+      }
     }
   }
 }
 ```
-</details>
 
-<details>
-<summary><b>Cursor</b></summary>
-
-编辑 `~/.cursor/mcp.json`：
-
-```json
-{
-  "mcpServers": {
-    "autoskills": {
-      "command": "node",
-      "args": ["<path-to-autoskills>/dist/index.js"]
-    }
-  }
-}
-```
-</details>
-
-<details>
-<summary><b>Claude Desktop</b></summary>
-
-编辑 `~/.claude/claude_desktop_config.json`：
-
-```json
-{
-  "mcpServers": {
-    "autoskills": {
-      "command": "node",
-      "args": ["<path-to-autoskills>/dist/index.js"]
-    }
-  }
-}
-```
-</details>
-
-> 💡 **`AUTOSKILLS_DIR`** 环境变量可覆盖默认技能位置（`~/.autoskills/personal-skills`）。
+`AUTOSKILLS_DIR` 用于指定这个 MCP 创建的个人技能存储目录。
 
 ### 3. 开始使用
 

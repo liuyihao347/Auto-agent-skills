@@ -43,75 +43,21 @@ npm run build
 
 Add the Autoskills MCP server to your agent's config:
 
-<details>
-<summary><b>Windsurf</b></summary>
-
-Edit `~/.codeium/windsurf/mcp_config.json`:
-
 ```json
 {
   "mcpServers": {
-    "autoskills": {
+    "auto-agent-skills": {
       "command": "node",
-      "args": ["<path-to-autoskills>/dist/index.js"]
+      "args": ["<path-to-autoskills>/dist/index.js"],
+      "env": {
+        "AUTOSKILLS_DIR": "<path-to-your-home>/.autoskills/personal-skills"
+      }
     }
   }
 }
 ```
-</details>
 
-<details>
-<summary><b>Cursor</b></summary>
-
-Edit `~/.cursor/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "autoskills": {
-      "command": "node",
-      "args": ["<path-to-autoskills>/dist/index.js"]
-    }
-  }
-}
-```
-</details>
-
-<details>
-<summary><b>Claude Desktop</b></summary>
-
-Edit `~/.claude/claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "autoskills": {
-      "command": "node",
-      "args": ["<path-to-autoskills>/dist/index.js"]
-    }
-  }
-}
-```
-</details>
-
-<details>
-<summary><b>Kilo Code</b></summary>
-
-Add via Kilo Code's MCP settings UI, or edit its config:
-
-```json
-{
-  "mcpServers": {
-    "autoskills": {
-      "command": "node",
-      "args": ["<path-to-autoskills>/dist/index.js"]
-    }
-  }
-}
-```
-</details>
-
-> 💡 **`AUTOSKILLS_DIR`** env var overrides the default skills location (`~/.autoskills/personal-skills`).
+`AUTOSKILLS_DIR` specifies where personal skills created by this MCP are stored.
 
 ### 3. Start Using It
 
