@@ -150,9 +150,9 @@ function addSkill(skillPath: string, autoConfirm: boolean): void {
     console.log(`✅ Copied skill to ${targetDir}`);
   }
 
-  if (isNewSkill) {
-    const agentsSkillsDir = getAgentsSkillsDir();
-    const linkPath = path.join(agentsSkillsDir, skillName);
+  const agentsSkillsDir = getAgentsSkillsDir();
+  const linkPath = path.join(agentsSkillsDir, skillName);
+  if (!fs.existsSync(linkPath)) {
     createSymlink(targetDir, linkPath);
     console.log(`✅ Created symlink: ${linkPath}`);
   }
@@ -200,32 +200,54 @@ function listSkills(): void {
   console.log(`Skills directory: ${skillsDir}`);
 }
 
+function removeSkill(skillName: string): void {
+  const skillsDir = getSkillsDir();
+  const agentsDir = getAgentsSkillsDir();
+  const skillDir = path.join(skillsDir, skillName);
+  const linkPath = path.join(agentsDir, skillName);
+
+  if (!fs.existsSync(skillDir)) {
+    console.error(`❌ Skill "${skillName}" not found in personal skills library.`);
+    process.exit(1);
+  }
+
+  fs.rmSync(skillDir, { recursive: true, force: true });
+  console.log(`✅ Removed skill directory: ${skillDir}`);
+
+  if (fs.existsSync(linkPath)) {
+    fs.rmSync(linkPath, { recursive: true, force: true });
+    console.log(`✅ Removed symlink: ${linkPath}`);
+  }
+
+  console.log(`\n✅ Skill "${skillName}" removed successfully.`);
+}
+
 function showHelp(): void {
   console.log(`
 Autoskills CLI - Manage personal AI agent skills
 
 Usage:
-  npx autoskills-cli <command> [options]
+  npx autoskill <command> [options]
 
 Commands:
-  init <name> [--path <dir>]   Create a new skill template
-  add <path> [-y]              Add a skill (copies to personal-skills, creates symlink)
-  list                         List all personal skills
-  help                         Show this help message
+  init <name>       Create a new skill template in the personal skills library
+  add <path> [-y]   Add a skill (copies to personal-skills, creates symlink)
+  remove <name>     Remove a skill from personal-skills library and delete its symlink
+  list              List all personal skills
+  help              Show this help message
 
 Environment Variables:
-  AUTOSKILLS_DIR               Personal skills storage (default: ~/.autoskills/personal-skills)
-  AGENTS_SKILLS_DIR            Agent skills symlink directory (default: ~/.agents/skills)
+  AUTOSKILLS_DIR      Personal skills storage (default: ~/.autoskills/personal-skills)
+  AGENTS_SKILLS_DIR   Agent skills symlink directory (default: ~/.agents/skills)
 
 Examples:
-  npx autoskills-cli init my-skill
-  npx autoskills-cli init my-skill --path ./skills
-  npx autoskills-cli add ./my-skill -y
-  npx autoskills-cli list
+  npx autoskill init my-skill
+  npx autoskill add ./my-skill -y
+  npx autoskill remove my-skill
+  npx autoskill list
 
 Options:
   -y, --yes    Auto-confirm overwrites
-  --path       Specify output directory for init command
 `);
 }
 
@@ -254,6 +276,16 @@ function main(): void {
       }
       const autoConfirm = args.includes("-y") || args.includes("--yes");
       addSkill(skillPath, autoConfirm);
+      break;
+    }
+    case "remove": {
+      const skillName = args[1];
+      if (!skillName) {
+        console.error("❌ Error: Skill name is required");
+        console.log("Usage: npx autoskill remove <skill-name>");
+        process.exit(1);
+      }
+      removeSkill(skillName);
       break;
     }
     case "list":

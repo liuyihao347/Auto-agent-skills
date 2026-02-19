@@ -118,7 +118,7 @@ export function getSkill(name: string): Skill | null {
 
 function runNpxSkillsAdd(skillDir: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const proc = spawn("npx", ["skills", "add", skillDir, "-y"], {
+    const proc = spawn("npx", ["autoskill", "add", skillDir, "-y"], {
       stdio: "pipe",
       shell: true,
     });
@@ -280,4 +280,88 @@ export function deleteSkill(name: string): boolean {
 
   fs.rmSync(skillDir, { recursive: true, force: true });
   return true;
+}
+
+export interface PublicSkillResult {
+  package: string;
+  url: string;
+}
+
+export function searchPublicSkills(query: string): Promise<PublicSkillResult[]> {
+  return new Promise((resolve) => {
+    const proc = spawn("npx", ["skills", "find", query], {
+      stdio: "pipe",
+      shell: true,
+    });
+
+    let stdout = "";
+    proc.stdout?.on("data", (data) => { stdout += data.toString(); });
+    proc.stderr?.on("data", (data) => { stdout += data.toString(); });
+
+    proc.on("close", () => {
+      const results: PublicSkillResult[] = [];
+      // Strip ANSI escape codes, normalize line endings
+      const clean = stdout.replace(/\x1B\[[0-9;]*[mGKHFJA-Za-z]/g, "").replace(/\r/g, "");
+      const lines = clean.split("\n").filter(l => l.trim() !== "");
+      for (let i = 0; i < lines.length; i++) {
+        // Match: owner/repo@skill-name [N installs]
+        const pkgMatch = lines[i].match(/^([\w.-]+\/[\w.-]+@[\w./ -]+?)(?:\s+\d+\s+installs?)?$/);
+        if (pkgMatch) {
+          const pkg = pkgMatch[1].trim();
+          // Next non-empty line may be └ https://...
+          const nextLine = lines[i + 1] ? lines[i + 1].trim().replace(/^[└\\]\s*/, "") : "";
+          const url = nextLine.startsWith("https://") ? nextLine : `https://skills.sh/${pkg.replace("@", "/")}`;
+          results.push({ package: pkg, url });
+        }
+      }
+      resolve(results);
+    });
+
+    proc.on("error", () => resolve([]));
+  });
+}
+
+export function installPublicSkill(pkg: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("npx", ["skills", "add", pkg, "-g", "-y"], {
+      stdio: "pipe",
+      shell: true,
+    });
+
+    let stdout = "";
+    let stderr = "";
+    proc.stdout?.on("data", (data) => { stdout += data.toString(); });
+    proc.stderr?.on("data", (data) => { stderr += data.toString(); });
+
+    proc.on("close", (code) => {
+      if (code === 0) {
+        resolve(stdout);
+      } else {
+        reject(new Error(`npx skills add failed (code ${code}): ${stderr || stdout}`));
+      }
+    });
+
+    proc.on("error", (err) => reject(new Error(`Failed to run npx skills add: ${err.message}`)));
+  });
+}
+
+export function getAgentsSkillsDir(): string {
+  return process.env.AGENTS_SKILLS_DIR || path.join(os.homedir(), ".agents", "skills");
+}
+
+export function createSymlinkForSkill(skillName: string): void {
+  const skillsDir = getSkillsDir();
+  const agentsDir = getAgentsSkillsDir();
+  const target = path.join(skillsDir, skillName);
+  const linkPath = path.join(agentsDir, skillName);
+
+  if (!fs.existsSync(target)) return;
+  if (!fs.existsSync(agentsDir)) fs.mkdirSync(agentsDir, { recursive: true });
+  if (fs.existsSync(linkPath)) return;
+
+  try {
+    fs.symlinkSync(target, linkPath, "junction");
+  } catch {
+    try { fs.symlinkSync(target, linkPath, "dir"); } catch { /* ignore */ }
+  }
 }

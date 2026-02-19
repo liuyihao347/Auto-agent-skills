@@ -8,13 +8,14 @@ import {
   getSkill,
   createSkill,
   updateSkill,
-  deleteSkill,
   getSkillsDir,
+  searchPublicSkills,
+  installPublicSkill,
+  createSymlinkForSkill,
 } from "./skills-manager.js";
 import {
   getSkillCreatorGuide,
   getSkillUpdaterGuide,
-  getAutoskillHandlerGuide,
 } from "./builtin-skills.js";
 
 const server = new McpServer({
@@ -121,134 +122,63 @@ server.tool(
   }
 );
 
-// ── Tool: autoskill_quick ─────────────────────────────────────────────────────
-// Quick command: /autoskill - skip agent's context judgment and directly create/improve skills
+// ── Tool: search_skill ────────────────────────────────────────────────────────
 server.tool(
-  "autoskill_quick",
-  "Quick command to skip agent's context judgment. When user types \/autoskill in chat, call this tool. If skill_hint is provided, create skill from that text. If skills_used provided, improve those skills. Otherwise auto-create skill from task_context.",
+  "search_skill",
+  "Search for a public skill from the open agent skills ecosystem before starting a task. Call this when the task description suggests a reusable public skill might exist (e.g. deploy, testing, react, docker). Automatically picks the top result by download count, downloads it to the personal skills library, and creates a symlink so it is available to the agent.",
   {
-    skill_hint: z
-      .string()
-      .optional()
-      .describe("User's additional text after \/autoskill command. If provided, create skill directly from this text"),
-    skills_used: z
-      .array(z.string())
-      .optional()
-      .describe("Names of personal skills used in current task. If provided and no skill_hint, improve these skills"),
-    task_context: z
-      .string()
-      .optional()
-      .describe("Current task context/summary. Used when no skill_hint and no skills_used to auto-create skill"),
-    skill_execution_smooth: z
-      .boolean()
-      .optional()
-      .describe("Whether skills_used executed smoothly. Only relevant when skills_used is provided"),
-    skill_issues: z
-      .string()
-      .optional()
-      .describe("Issues encountered with skills_used"),
+    query: z.string().describe("Search keywords describing the skill needed, e.g. 'react performance' or 'deploy docker'"),
   },
-  async ({ skill_hint, skills_used, task_context, skill_execution_smooth, skill_issues }) => {
-    const usedSkills = skills_used ?? [];
-    const hasUsedSkills = usedSkills.length > 0;
+  async ({ query }) => {
+    try {
+      const results = await searchPublicSkills(query);
 
-    // Case 1: User provided skill_hint - create skill directly from hint
-    if (skill_hint && skill_hint.trim()) {
-      const creatorGuide = getSkillCreatorGuide();
-      const handlerGuide = getAutoskillHandlerGuide();
+      if (results.length === 0) {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({
+            found: false,
+            message: `No public skills found for "${query}". Proceed with the task using general capabilities.`,
+          }) }],
+        };
+      }
+
+      const top = results[0];
+      let installed = false;
+      let installError = "";
+
+      try {
+        await installPublicSkill(top.package);
+        const skillName = top.package.split("@")[1];
+        createSymlinkForSkill(skillName);
+        installed = true;
+      } catch (err) {
+        installError = (err as Error).message;
+      }
+
       return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify({
-              action: "direct_create",
-              message: `Creating new skill from your hint: "${skill_hint}"`,
-              skill_hint: skill_hint.trim(),
-              guide: creatorGuide ? {
-                name: creatorGuide.name,
-                description: creatorGuide.description,
-                instructions: creatorGuide.content,
-              } : null,
-              handler_guide: handlerGuide ? {
-                name: handlerGuide.name,
-                description: handlerGuide.description,
-                instructions: handlerGuide.content,
-              } : null,
-            }),
-          },
-        ],
+        content: [{ type: "text" as const, text: JSON.stringify({
+          found: true,
+          top_result: top,
+          all_results: results,
+          installed,
+          install_error: installError || undefined,
+          message: installed
+            ? `Skill "${top.package}" installed and ready. Use it for this task, then call review_task when done.`
+            : `Found skill "${top.package}" but installation failed: ${installError}. You can install manually: npx skills add ${top.package} -g -y`,
+        }) }],
+      };
+    } catch (err) {
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({
+          found: false,
+          message: `Search failed: ${(err as Error).message}`,
+        }) }],
       };
     }
-
-    // Case 2: User used skills - improve them
-    if (hasUsedSkills) {
-      const skillDetails = usedSkills
-        .map((name) => {
-          const skill = getSkill(name);
-          return skill
-            ? `- **${skill.meta.name}**: ${skill.meta.description}`
-            : `- **${name}**: (not found in personal skills)`;
-        })
-        .join("\n");
-
-      const updaterGuide = getSkillUpdaterGuide();
-      const handlerGuide = getAutoskillHandlerGuide();
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify({
-              action: hasUsedSkills && skill_execution_smooth === false ? "direct_improve" : "suggest_improve",
-              message: hasUsedSkills && skill_execution_smooth === false
-                ? `Auto-improving skill(s) based on execution issues:`
-                : `The following skill(s) were used. Would you like to improve them?`,
-              skills_to_improve: usedSkills,
-              skills_details: skillDetails,
-              issues: skill_issues || "",
-              task_context: task_context || "",
-              guide: updaterGuide ? {
-                name: updaterGuide.name,
-                description: updaterGuide.description,
-                instructions: updaterGuide.content,
-              } : null,
-              handler_guide: handlerGuide ? {
-                name: handlerGuide.name,
-                description: handlerGuide.description,
-                instructions: handlerGuide.content,
-              } : null,
-            }),
-          },
-        ],
-      };
-    }
-
-    // Case 3: No skills used, no hint - auto-create from task context
-    const creatorGuide = getSkillCreatorGuide();
-    const handlerGuide = getAutoskillHandlerGuide();
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: JSON.stringify({
-            action: "auto_create",
-            message: `Auto-creating skill from current task context.`,
-            task_context: task_context || "",
-            guide: creatorGuide ? {
-              name: creatorGuide.name,
-              description: creatorGuide.description,
-              instructions: creatorGuide.content,
-            } : null,
-            handler_guide: handlerGuide ? {
-              name: handlerGuide.name,
-              description: handlerGuide.description,
-              instructions: handlerGuide.content,
-            } : null,
-          }),
-        },
-      ],
-    };
   }
 );
+
+
 server.tool(
   "create_skill",
   "Create a new personal skill from a completed task solution",
@@ -399,31 +329,6 @@ server.tool(
               content: skill.content,
               path: skill.filePath,
             },
-          }),
-        },
-      ],
-    };
-  }
-);
-
-// ── Tool: delete_skill ─────────────────────────────────────────────────────────
-server.tool(
-  "delete_skill",
-  "Delete a personal skill from the library",
-  {
-    name: z.string().describe("Name of the skill to delete"),
-  },
-  async ({ name }) => {
-    const deleted = deleteSkill(name);
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: JSON.stringify({
-            success: deleted,
-            message: deleted
-              ? `Skill "${name}" deleted.`
-              : `Skill "${name}" not found.`,
           }),
         },
       ],
