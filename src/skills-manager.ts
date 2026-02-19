@@ -148,14 +148,14 @@ function runNpxSkillsAdd(skillDir: string): Promise<void> {
   });
 }
 
-export async function createSkill(
+export function createSkill(
   name: string,
   description: string,
   title: string,
   whenToUse: string,
   instructions: string,
   tags: string[] = []
-): Promise<string> {
+): string {
   const dir = getSkillsDir();
   const skillDir = path.join(dir, name);
 
@@ -163,9 +163,7 @@ export async function createSkill(
     throw new Error(`Skill "${name}" already exists. Use update_skill to modify it.`);
   }
 
-  // Create temporary directory for the skill
-  const tmpDir = path.join(os.tmpdir(), `autoskill-${name}-${Date.now()}`);
-  ensureDir(tmpDir);
+  ensureDir(skillDir);
 
   const now = new Date().toISOString().slice(0, 10);
   const meta: SkillMeta = {
@@ -190,22 +188,10 @@ export async function createSkill(
     "",
   ].join("\n");
 
-  const skillFile = path.join(tmpDir, "SKILL.md");
+  const skillFile = path.join(skillDir, "SKILL.md");
   fs.writeFileSync(skillFile, content, "utf-8");
 
-  // Install using npx skills add
-  try {
-    await runNpxSkillsAdd(tmpDir);
-  } finally {
-    // Clean up temp directory
-    try {
-      fs.rmSync(tmpDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
-    }
-  }
-
-  return path.join(skillDir, "SKILL.md");
+  return skillFile;
 }
 
 export function updateSkill(
