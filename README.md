@@ -14,7 +14,18 @@
 
 </div>
 
-![Flowchart](./flowchart.png)
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              Auto-agent-skills  ·  Skill Lifecycle                              │
+├──────────────┬──────────────────┬──────────────────┬──────────────────┬────────────────────────┤
+│  New Task    │   Auto-Search    │  Task Execution  │   Auto-Review    │    Skill Library       │
+│              │                 │                  │                  │                        │
+│  User gives  │  search_skill   │  Agent runs task │  review_task     │  Personal skills grow  │
+│  a task  ──► │  finds & installs│  guided by skill │  evaluates result│  over time, reusable   │
+│              │  top public skill│  if available ──►│  ──► create /    │  across all agents  ✓  │
+│              │  + creates link  │                  │       improve    │                        │
+└──────────────┴──────────────────┴──────────────────┴──────────────────┴────────────────────────┘
+```
 
 ---
 
