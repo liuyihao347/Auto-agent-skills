@@ -13,6 +13,7 @@
 *An MCP server that helps AI agents discover, create, and continuously improve reusable skills — automatically.*
 
 </div>
+
 ![flowchart](flowchart.png)
 ---
 
