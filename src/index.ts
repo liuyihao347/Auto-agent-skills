@@ -93,7 +93,7 @@ function inferSkillFocus(taskContext: string, candidateSkill?: string): SkillFoc
 // ── Tool: review_task ──────────────────────────────────────────────────────────
 server.tool(
   "review_task",
-  "After completing a task, call this tool to check if the solution is worth saving as a reusable skill. This helps build your personal skills library over time.",
+  "After completing any task, call this to capture reusable knowledge. If no skills were used, it will suggest creating a new skill. If skills had issues, it will suggest improvements. This builds your personal skills library automatically.",
   {
     task_description: z.string().describe("What task was completed"),
     solution_summary: z.string().describe("How the task was solved"),
@@ -161,7 +161,7 @@ server.tool(
 // ── Tool: search_skill ────────────────────────────────────────────────────────
 server.tool(
   "search_skill",
-  "Before searching, first choose ONE candidate skill focus that can best help complete the task, then search by that focus. The tool installs the top result by download count, creates a symlink, and returns guidance on which later task stages should reference the skill (adapt it to current context, do not copy verbatim).",
+  "When starting a new task, first decide which skill domain would help most, then call this to find and install relevant skills. The tool searches the public skill ecosystem, installs the best match, and tells you which execution stages should reference it (adapt to your context, don't copy blindly).",
   {
     task_context: z.string().optional().describe("Task summary from the user request"),
     candidate_skill: z.string().optional().describe("One candidate skill focus decided by the agent before search"),
@@ -240,7 +240,7 @@ server.tool(
 
 server.tool(
   "create_skill",
-  "Call this tool whenever review_task suggests action 'suggest_create', or whenever the user asks to save, remember, or reuse a solution. Packages the current task solution into a reusable personal skill stored in the personal skills library. Must be called immediately when the suggestion is made — do not defer or ask for confirmation unless the user explicitly declines.",
+  "Immediately call this when you solve a problem that could be reused, or when review_task suggests creating a skill. Converts your solution into a reusable skill—no confirmation needed unless the user explicitly declines.",
   {
     name: z
       .string()
@@ -287,7 +287,7 @@ server.tool(
 // ── Tool: update_skill ─────────────────────────────────────────────────────────
 server.tool(
   "update_skill",
-  "Call this tool whenever review_task suggests action 'suggest_improve', or when a skill was used but produced suboptimal results. Immediately apply targeted improvements to the skill's instructions based on what went wrong. Do not defer — update the skill right after the task while the context is fresh.",
+  "Immediately call this when a skill produces suboptimal results or when review_task suggests improving a skill. Apply fixes while the context is fresh—no need to defer or ask permission.",
   {
     name: z.string().describe("Name of the skill to update"),
     description: z.string().optional().describe("Updated description"),
@@ -336,7 +336,7 @@ server.tool(
 // ── Tool: list_skills ──────────────────────────────────────────────────────────
 server.tool(
   "list_skills",
-  "List all personal skills in the skills library",
+  "Check what skills are available before starting a task, or to see your personal skills library contents.",
   {},
   async () => {
     const skills = listSkills();
@@ -358,7 +358,7 @@ server.tool(
 // ── Tool: get_skill ────────────────────────────────────────────────────────────
 server.tool(
   "get_skill",
-  "Read the full content of a specific personal skill",
+  "Read a specific skill's full instructions before using it, or to check what a skill contains.",
   {
     name: z.string().describe("Name of the skill to read"),
   },
