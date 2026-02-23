@@ -299,6 +299,77 @@ function findSkillInPlugins(baseDir: string, skillName: string): string[] {
   return results;
 }
 
+function readSkillNameFromSkillMd(skillMdPath: string): string | null {
+  try {
+    const content = fs.readFileSync(skillMdPath, "utf-8");
+    const match = content.match(/^name:\s*(.+)$/m);
+    return match ? match[1].trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function findSkillByScanningSkillMd(baseDir: string, skillName: string): string | null {
+  const queue: string[] = [baseDir];
+
+  while (queue.length > 0) {
+    const current = queue.shift() as string;
+    let entries: fs.Dirent[] = [];
+
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+
+    const skillMd = path.join(current, "SKILL.md");
+    if (fs.existsSync(skillMd)) {
+      const parsedName = readSkillNameFromSkillMd(skillMd);
+      const dirName = path.basename(current);
+      if (parsedName === skillName || dirName === skillName) {
+        return current;
+      }
+    }
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      if (entry.name === ".git" || entry.name === "node_modules") continue;
+      queue.push(path.join(current, entry.name));
+    }
+  }
+
+  return null;
+}
+
+function resolveSkillSourceDir(baseDir: string, skillName: string): string | null {
+  const rootSkillMd = path.join(baseDir, "SKILL.md");
+  if (fs.existsSync(rootSkillMd)) {
+    const parsedName = readSkillNameFromSkillMd(rootSkillMd);
+    if (parsedName === skillName) {
+      return baseDir;
+    }
+  }
+
+  const directCandidates = [
+    path.join(baseDir, skillName),
+    path.join(baseDir, "skills", skillName),
+    path.join(baseDir, "src", skillName),
+    path.join(baseDir, "packages", skillName),
+    path.join(baseDir, "plugins", skillName),
+    path.join(baseDir, "agents", skillName),
+    ...findSkillInPlugins(baseDir, skillName),
+  ];
+
+  for (const candidate of directCandidates) {
+    if (!fs.existsSync(candidate)) continue;
+    if (fs.existsSync(path.join(candidate, "SKILL.md"))) {
+      return candidate;
+    }
+  }
+
+  return findSkillByScanningSkillMd(baseDir, skillName);
+}
+
 export interface PublicSkillResult {
   package: string;
   url: string;
@@ -381,37 +452,18 @@ export function installPublicSkill(pkg: string): Promise<string> {
         return;
       }
 
-      // Find the skill directory in the cloned repo
-      const skillSourceDir = path.join(tempDir, skillName);
-      if (!fs.existsSync(skillSourceDir)) {
-        // Try alternative locations - search recursively for skill directory
-        const altLocations = [
-          path.join(tempDir, "skills", skillName),
-          path.join(tempDir, "src", skillName),
-          path.join(tempDir, "packages", skillName),
-          path.join(tempDir, "plugins", skillName),
-          path.join(tempDir, "agents", skillName),
-          // Search in plugins subdirectories
-          ...findSkillInPlugins(tempDir, skillName),
-        ];
-        let foundDir = null;
-        for (const alt of altLocations) {
-          if (fs.existsSync(alt)) {
-            foundDir = alt;
-            break;
-          }
-        }
-        if (!foundDir) {
-          fs.rmSync(tempDir, { recursive: true, force: true });
-          reject(new Error(`Skill "${skillName}" not found in repository ${owner}/${repo}`));
-          return;
-        }
-        // Copy from alternative location
-        copyDir(foundDir, targetDir);
-      } else {
-        // Copy skill directory to personal skills
-        copyDir(skillSourceDir, targetDir);
+      const skillSourceDir = resolveSkillSourceDir(tempDir, skillName);
+      if (!skillSourceDir) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+        reject(new Error(`Skill "${skillName}" not found in repository ${owner}/${repo}`));
+        return;
       }
+
+      if (fs.existsSync(targetDir)) {
+        fs.rmSync(targetDir, { recursive: true, force: true });
+      }
+
+      copyDir(skillSourceDir, targetDir);
 
       // Clean up temp directory
       fs.rmSync(tempDir, { recursive: true, force: true });

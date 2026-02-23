@@ -23,6 +23,73 @@ const server = new McpServer({
   version: "1.0.0",
 });
 
+function normalizeSearchQuery(raw: string): string {
+  return raw.trim();
+}
+
+interface SkillFocusDecision {
+  searchQuery: string;
+  suggest: string[];
+}
+
+function inferSkillFocus(taskContext: string, candidateSkill?: string): SkillFocusDecision {
+  const text = `${candidateSkill || ""} ${taskContext}`.toLowerCase();
+
+  if (candidateSkill && candidateSkill.trim()) {
+    const focus = candidateSkill.trim();
+    return {
+      searchQuery: normalizeSearchQuery(focus),
+      suggest: [
+        "需求拆解阶段：参考 skill 的任务边界与输入输出定义",
+        "实现阶段：参考核心步骤并按当前项目约束做改写",
+        "验证阶段：参考 skill 的检查清单补齐测试/验收项",
+      ],
+    };
+  }
+
+  if (/(migration|migrate|server|deploy|rollback|cutover|infra|docker|k8s|kubernetes)/.test(text)) {
+    return {
+      searchQuery: "server migration deployment rollback checklist",
+      suggest: [
+        "迁移方案设计：参考分阶段迁移、回滚与风险控制策略",
+        "环境准备与数据同步：参考前置检查与脚本化步骤",
+        "切换与验收：参考 cutover、回滚条件和观测项",
+      ],
+    };
+  }
+
+  if (/(tkinter|gui|ui|ux|redesign|desktop)/.test(text) && /(python|quiz|app)/.test(text)) {
+    return {
+      searchQuery: "python tkinter gui app architecture",
+      suggest: [
+        "界面结构重构：参考布局组织与组件职责划分",
+        "交互实现：参考提交、反馈、解释展示等流程编排",
+        "收尾优化：参考可维护性与可扩展性实践（而非逐字照搬）",
+      ],
+    };
+  }
+
+  if (/(pdf|notes|note|study|quiz|question|explanation|feedback)/.test(text)) {
+    return {
+      searchQuery: "quiz workflow content generation feedback explanation",
+      suggest: [
+        "内容生成阶段：参考题目与讲解组织方式",
+        "交互闭环阶段：参考即时反馈与解释输出时机",
+        "导出与归档阶段：参考 PDF/笔记产物的结构化输出",
+      ],
+    };
+  }
+
+  return {
+    searchQuery: normalizeSearchQuery(taskContext),
+    suggest: [
+      "方案制定阶段：参考任务拆解方法",
+      "执行阶段：参考关键步骤并结合实际环境调整",
+      "验收阶段：参考质量检查项",
+    ],
+  };
+}
+
 // ── Tool: review_task ──────────────────────────────────────────────────────────
 server.tool(
   "review_task",
@@ -94,19 +161,37 @@ server.tool(
 // ── Tool: search_skill ────────────────────────────────────────────────────────
 server.tool(
   "search_skill",
-  "ALWAYS call this tool BEFORE starting any non-trivial task. Search the public skill ecosystem for a reusable skill that matches the task. This must be the FIRST tool called at the start of tasks involving coding, deployment, testing, frameworks, or any domain-specific work (e.g. react, docker, python, git, CI/CD, databases). Automatically picks the top result by download count, installs it, and creates a symlink so it is immediately available.",
+  "Before searching, first choose ONE candidate skill focus that can best help complete the task, then search by that focus. The tool installs the top result by download count, creates a symlink, and returns guidance on which later task stages should reference the skill (adapt it to current context, do not copy verbatim).",
   {
-    query: z.string().describe("Search keywords describing the skill needed, e.g. 'react performance' or 'deploy docker'"),
+    task_context: z.string().optional().describe("Task summary from the user request"),
+    candidate_skill: z.string().optional().describe("One candidate skill focus decided by the agent before search"),
+    query: z.string().optional().describe("Legacy fallback query (for compatibility)"),
   },
-  async ({ query }) => {
+  async ({ task_context, candidate_skill, query }) => {
     try {
-      const results = await searchPublicSkills(query);
+      const sourceContext = task_context || query || "";
+      if (!sourceContext.trim() && !candidate_skill?.trim()) {
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify({
+            found: false,
+            message: "search_skill requires task_context (or legacy query), and should include one candidate_skill focus when possible.",
+          }) }],
+        };
+      }
+
+      const decision = inferSkillFocus(sourceContext, candidate_skill);
+      const results = await searchPublicSkills(decision.searchQuery);
 
       if (results.length === 0) {
         return {
           content: [{ type: "text" as const, text: JSON.stringify({
             found: false,
-            message: `No public skills found for "${query}". Proceed with the task using general capabilities.`,
+            task_context: sourceContext,
+            candidate_skill: candidate_skill || null,
+            search_query: decision.searchQuery,
+            suggest: decision.suggest,
+            usage_note: "Use skills as reference and adapt to current constraints; do not copy verbatim.",
+            message: `No public skills found for query "${decision.searchQuery}". Proceed with general capabilities.`,
           }) }],
         };
       }
@@ -127,12 +212,17 @@ server.tool(
       return {
         content: [{ type: "text" as const, text: JSON.stringify({
           found: true,
+          task_context: sourceContext,
+          candidate_skill: candidate_skill || null,
+          search_query: decision.searchQuery,
           top_result: top,
           all_results: results,
           installed,
           install_error: installError || undefined,
+          suggest: decision.suggest,
+          usage_note: "Reference the skill in relevant stages, but adapt to your project context instead of copying directly.",
           message: installed
-            ? `Skill "${top.package}" installed and ready. Use it for this task. After completing the task, call review_task to evaluate if this solution should be saved.`
+            ? `Skill "${top.package}" installed for query "${decision.searchQuery}". Reference it in later execution stages (not verbatim), then call review_task after task completion.`
             : `Found skill "${top.package}" but installation failed: ${installError}. You can install manually with: npx skills add ${top.package}`,
         }) }],
       };
